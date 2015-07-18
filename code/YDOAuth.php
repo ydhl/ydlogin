@@ -4,6 +4,45 @@ abstract class YDOAuth{
     protected $appsecret;
     protected $http;
     protected $error;
+    protected $redirect_uri 	= "";
+    
+    public function setResponseFormat($format){
+        $this->http->format = $format;
+    }
+    public function get_Authorize_URL($response_type, $scope=null, $state=null, $display=null){
+        $params = array(
+                'client_id' 	=> $this->appkey,
+                'response_type' => $response_type,
+                'redirect_uri' 	=> $this->redirect_uri,
+        );
+        if(!empty($scope))	$params['scope'] = $scope;
+        if(!empty($state))	$params['state'] = $state;
+        if(!empty($display))	$params['display'] = $display;
+        $query = OAuthUtil::build_http_query($params);
+        $authorizeURL = $this->getOauthAuthorizeURL();
+        return strrpos($authorizeURL, "?")!==FALSE ? $authorizeURL."&{$query}"  : $authorizeURL."?{$query}";
+    }
+    
+    public function get_Access_Token_From_Code($code){
+        $params = array(
+                'grant_type' 	=> "authorization_code",
+                'code' 			=> $code,
+                'client_id' 		=> $this->appkey,
+                'client_secret' 	=> $this->appsecret,
+                'redirect_uri' 	=> $this->redirect_uri
+        );
+        return $this->formatAccessToken( $this->http->post($this->getOauthAccessTokenURL(),$params) );
+    }
+    
+    public function get_Access_Token_From_Refresh_Token($refresh_token){
+        $params = array(
+                'grant_type' 	=> "refresh_token",
+                'client_id' 		=> $this->appkey,
+                'client_secret' 	=> $this->appsecret,
+                'refresh_token' 	=> $refresh_token,
+        );
+        return $this->http->post($this->getOauthAccessTokenURL(),$params);
+    }
     
     public function __construct($appkey, $appsecret){
         $this->appkey 		= $appkey;
@@ -12,54 +51,47 @@ abstract class YDOAuth{
     }
     
 	/**
-	 * 取得用户信息，出错返回异常
+	 * 取得用户信息
 	 * 
 	 * @param  $args
 	 * 
 	 * @return stdClass
 	 */
-	public abstract function get_User_Info($args);
+	public abstract function get_oAuthUser_Info($oAuthInfo);
 	public abstract function getOauthAccessTokenURL();
 	public abstract function getOauthAuthorizeURL();
 	public abstract function getOauthScope();
+	public abstract function formatAccessToken($access_token);
 	
 	
 	public function doLogin($backurl){
-	    $auth = new YDHL_OAuthClient($this->appkey, $this->appsecret, $backurl);
-	    $auth->accessTokenURL  = $this->getOauthAccessTokenURL();
-	    $auth->authorizeURL    = $this->getOauthAuthorizeURL();
+	    $this->redirect_uri = $backurl;
 	    
 	    $auth_code 	= @$_GET["code"];
 	    $error     	= @$_GET["error"];
 	    if($error){
-	        YDHook::do_hook(YDHook::HOOK_LOGIN_FAIL, array());
+	        YDHook::do_hook(YDHook::HOOK_LOGIN_FAIL, $error);
 	        die;
 	    }
 	    
 	    //第一步申请code
 	    if( ! $auth_code){
 	        ob_clean();
-	        header("Location: ".$auth->get_Authorize_URL("code", $this->getOauthScope()));
+	        header("Location: ".$this->get_Authorize_URL("code", $this->getOauthScope()));
 	        die;
 	    }
 	    
 	    //第二步申请access token
-	    $str = $auth->get_Access_Token_From_Code($auth_code);
-	    
-	    if(!($resp = json_decode($str, true))){
-	        $resp = array();
-	        parse_str($str, $resp);//白痴 QQ，这里返回string，其它地方又返回json string
-	    }
-	    
-	    if(@$resp['access_token']){
-	        $user = $this->get_user_info($resp);
-	        if($user){
-                YDHook::do_hook(YDHook::HOOK_LOGIN_SUCCESS, $this->error);
+	    $resp = $this->get_Access_Token_From_Code($auth_code);
+	    if($resp){
+	        $user = $this->get_oAuthUser_Info($resp);
+	        if( ! $user){
+                YDHook::do_hook(YDHook::HOOK_LOGIN_FAIL, $this->error);
 	        }else{
-	            YDHook::do_hook(YDHook::HOOK_LOGIN_FAIL, $resp);
+	            YDHook::do_hook(YDHook::HOOK_LOGIN_SUCCESS, $user);
 	        }
 	    }else{
-	       YDHook::do_hook(YDHook::HOOK_LOGIN_FAIL, $resp);
+	       YDHook::do_hook(YDHook::HOOK_LOGIN_FAIL, $this->error);
 	    }
 	}
 }

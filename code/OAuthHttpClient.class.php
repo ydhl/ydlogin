@@ -48,10 +48,8 @@ class OAuthHttpClient{
 	{
 		
 		if($params){
-			//考虑到jiaoliuping的discuz插件给定的url已经有?的情况
 			$url .= (strrpos($url, "?")!==FALSE ? "&"  : "?").OAuthUtil::build_http_query($params);
 		}
-		//echo $url;
 		$response = $this->http($url,'GET');
 		return $response;
 	}
@@ -60,10 +58,6 @@ class OAuthHttpClient{
 		
 		$query = "";
 		if($multi){
-			
-			/* $query = $params;
-			
-			log4web(http_build_query($query), "http 0"); */
 			$query = OAuthUtil::build_http_query_multi($params);
 		}else{
 			$query = OAuthUtil::build_http_query($params);
@@ -124,12 +118,6 @@ class OAuthHttpClient{
 		$response = curl_exec($ci);
 		$curl_info = curl_getinfo($ci);
 
-		if( $multi )
-		{
-			//print_r($postfields);
-			//print_r("curl_info:".http_build_query($curl_info)."<br/><br/>postfield:".http_build_query($postfields)."<br/><br/>response:".$response."<br/><br/>error:".curl_error($ci)."<br/><br/>");
-			log4web(http_build_query((array)$curl_info)."|".$response , "http");
-		}
 		$this->http_code = $curl_info['http_code'];
 		$this->http_info = array_merge($this->http_info, $curl_info);
 		$this->url = $url;

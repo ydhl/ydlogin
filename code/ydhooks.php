@@ -55,16 +55,23 @@ final class YDHook {
     }
 }
 
+//默认的处理
 YDHook::add_hook(YDHook::HOOK_LOGIN_SUCCESS, function ($info){
     if(YDHook::has_hook(YDHook::HOOK_LOGIN_SUCCESS)){
-        echo "login success:<br/>";
-        print_r($info);
+        $_SESSION['loginUser'] = $info;
+        unset($_SESSION['loginError']);
+        ob_clean();//清空缓存区，避免header不能输出
+        header("Location:/");
+        die();
     }
 });
-YDHook::add_hook(YDHook::HOOK_LOGIN_FAIL, function ($info){
-    if(YDHook::has_hook(YDHook::HOOK_LOGIN_SUCCESS)){
-        echo "login fail:<br/>";
-        print_r($info);
+YDHook::add_hook(YDHook::HOOK_LOGIN_FAIL, function ($error){
+    if(YDHook::has_hook(YDHook::HOOK_LOGIN_FAIL)){
+        unset($_SESSION['loginUser']);
+        $_SESSION['loginError'] = $error;
+        ob_clean();
+        header("Location: /");
+        die();
     }
 });
 ?>
