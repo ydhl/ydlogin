@@ -23,10 +23,10 @@ class YDLoginUser{
      * @var unknown
      */
     public $avatar;
-    
+
     /**
      * 用户在来源网站上的完整信息
-     * 
+     *
      * @var array
      */
     public $origData;

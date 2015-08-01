@@ -69,8 +69,12 @@ abstract class YDOAuth{
 	    
 	    $auth_code 	= @$_GET["code"];
 	    $error     	= @$_GET["error"];
+	    $redirect_uri= @$_GET["redirect_uri"];
+	    if($redirect_uri){
+	        $_SESSION['redirect_uri'] = urldecode($redirect_uri);
+	    }
 	    if($error){
-	        YDHook::do_hook(YDHook::HOOK_LOGIN_FAIL, $error);
+	        $this->handleError($error);
 	        die;
 	    }
 	    
@@ -86,13 +90,34 @@ abstract class YDOAuth{
 	    if($resp){
 	        $user = $this->get_oAuthUser_Info($resp);
 	        if( ! $user){
-                YDHook::do_hook(YDHook::HOOK_LOGIN_FAIL, $this->error);
+                $this->handleError($this->error);
 	        }else{
-	            YDHook::do_hook(YDHook::HOOK_LOGIN_SUCCESS, $user);
+	            $this->handleSuccess($user);
 	        }
 	    }else{
-	       YDHook::do_hook(YDHook::HOOK_LOGIN_FAIL, $this->error);
+	       $this->handleError( $this->error);
 	    }
+	}
+	private function handleSuccess($user){
+	    $redirect_uri = $_SESSION['redirect_uri'];
+	    if($redirect_uri){
+	        ob_clean();
+	        unset($_SESSION['redirect_uri']);
+	        $user->origData = null;
+	        header("Location: {$redirect_uri}?user=".urlencode(json_encode($user)));
+	        die;
+	    }
+	    YDHook::do_hook(YDHook::HOOK_LOGIN_SUCCESS, $user);
+	}
+	private function handleError($error){
+	    $redirect_uri = $_SESSION['redirect_uri'];
+        if($redirect_uri){
+            ob_clean();
+            unset($_SESSION['redirect_uri']);
+            header("Location: {$redirect_uri}?error=".urlencode($error));
+            die;
+        }
+	    YDHook::do_hook(YDHook::HOOK_LOGIN_FAIL, $error);
 	}
 }
 ?>
